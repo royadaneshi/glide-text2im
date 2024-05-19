@@ -62,6 +62,24 @@ class CLIPModel:
             return grad * grad_scale
 
         return cond_fn
+    
+    
+    def cond_fn_extrapolate(self, z_e: torch.Tensor, grad_scale: float) -> Callable[..., torch.Tensor]:
+        # Assuming z_e is already an embedding tensor and doesn't need to be generated
+        
+        z_e = z_e.detach()
+
+        def cond_fn(x, t, grad_scale=grad_scale, **kwargs):
+            with torch.enable_grad():
+                x_var = x.detach().requires_grad_(True)
+                # Assuming the method image_embeddings generates embeddings for images at timestep t
+                z_i = self.image_embeddings(x_var, t)
+                # Negate the loss by negating the sum operation
+                loss = -torch.exp(self.logit_scale) * (z_e * z_i).sum()
+                grad = torch.autograd.grad(loss, x_var)[0].detach()
+            return grad * grad_scale
+
+        return cond_fn
 
 
 def create_clip_model(
